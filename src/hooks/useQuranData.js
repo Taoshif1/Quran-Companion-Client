@@ -14,7 +14,6 @@ export function useTranslations() {
 export function useChapter(chapterId, translationId) {
   return useQuery({
     queryKey: ["chapter", Number(chapterId), Number(translationId)], enabled: Boolean(translationId),
-    queryFn: async () => { try { const data = await fetchChapterContent(chapterId, translationId); await cacheChapterContent(data); return data; } catch (error) { const cached = await db.chapterContent.get([Number(chapterId), Number(translationId)]); if (cached) return cached; throw error; } },
+    queryFn: async () => { try { const data = await fetchChapterContent(chapterId, translationId); await cacheChapterContent(data); return data; } catch (error) { const cached = await db.chapterContent.get([Number(chapterId), Number(translationId)]); if (cached) return cached; if (!navigator.onLine) { const offlineError = new Error("Selected translation is unavailable offline"); offlineError.code = "OFFLINE_TRANSLATION_MISSING"; throw offlineError; } throw error; } },
   });
 }
-

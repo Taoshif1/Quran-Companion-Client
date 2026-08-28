@@ -1,10 +1,39 @@
+import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { usePreferences } from "../../providers/PreferencesProvider";
 
 export function ReaderSettings({ open, onClose, resources = [] }) {
   const { preferences, setPreferences } = usePreferences();
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousFocus = document.activeElement;
+    panelRef.current?.querySelector("button, input, select")?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+      if (event.key !== "Tab") return;
+      const focusable = [...panelRef.current.querySelectorAll("button, input, select")];
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => { document.removeEventListener("keydown", handleKeyDown); previousFocus?.focus(); };
+  }, [onClose, open]);
+
   if (!open) return null;
   const update = (key, value) => setPreferences((current) => ({ ...current, [key]: value }));
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-3 sm:items-center" role="dialog" aria-modal="true" aria-label="Reader settings"><div className="w-full max-w-lg rounded-3xl bg-base-100 p-6 shadow-2xl"><div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Reader settings</h2><button className="btn btn-circle btn-ghost" onClick={onClose} aria-label="Close reader settings"><X/></button></div><label className="mt-5 block">Arabic font size: {preferences.arabicSize}px<input className="range range-primary mt-2" type="range" min="24" max="54" value={preferences.arabicSize} onChange={(e) => update("arabicSize", Number(e.target.value))}/></label><label className="mt-5 block">Bangla font size: {preferences.banglaSize}px<input className="range range-primary mt-2" type="range" min="14" max="28" value={preferences.banglaSize} onChange={(e) => update("banglaSize", Number(e.target.value))}/></label><label className="mt-5 flex items-center justify-between">Show Bangla translation<input className="toggle toggle-primary" type="checkbox" checked={preferences.showTranslation} onChange={(e) => update("showTranslation", e.target.checked)}/></label><label className="mt-5 block">Theme<select className="select select-bordered mt-2 w-full" value={preferences.theme} onChange={(e) => update("theme", e.target.value)}><option value="light">Light</option><option value="dark">Dark</option><option value="reading">Reading / Sepia</option></select></label><p className="mt-5 text-sm text-base-content/60">Translation source: {preferences.translationName}</p>{resources.length > 1 && <label className="mt-2 block">Bengali translation<select className="select select-bordered mt-2 w-full" value={preferences.translationId || ""} onChange={(e) => { const selected = resources.find((item) => item.id === Number(e.target.value)); setPreferences((current) => ({...current, translationId:selected.id, translationName:selected.name || selected.authorName || "Official Bengali translation"})); }}>{resources.map((resource) => <option key={resource.id} value={resource.id}>{resource.name || resource.authorName}</option>)}</select></label>}</div></div>;
+  const selectTranslation = (id) => {
+    const selected = resources.find((item) => item.id === Number(id));
+    if (selected) setPreferences((current) => ({ ...current, translationId: selected.id, translationName: selected.name || "Official Bengali translation", translationAuthor: selected.authorName || null }));
+  };
+
+  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-neutral/55 p-3 backdrop-blur-sm sm:items-center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div ref={panelRef} className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-[2rem] bg-base-100 p-6 shadow-2xl sm:p-7" role="dialog" aria-modal="true" aria-labelledby="reader-settings-title"><div className="flex items-center justify-between"><div><p className="text-xs uppercase tracking-widest text-primary">Reading comfort</p><h2 id="reader-settings-title" className="mt-1 text-xl font-semibold">Reader settings</h2></div><button className="btn btn-circle btn-ghost" onClick={onClose} aria-label="Close reader settings"><X/></button></div><div className="mt-6 grid gap-6"><RangeSetting label="Arabic font size" value={preferences.arabicSize} min={24} max={54} suffix="px" onChange={(value) => update("arabicSize", value)}/><RangeSetting label="Arabic line height" value={preferences.arabicLineHeight} min={1.6} max={2.5} step={0.05} onChange={(value) => update("arabicLineHeight", value)}/><RangeSetting label="Bangla font size" value={preferences.banglaSize} min={14} max={28} suffix="px" onChange={(value) => update("banglaSize", value)}/><RangeSetting label="Bangla line height" value={preferences.banglaLineHeight} min={1.4} max={2.2} step={0.05} onChange={(value) => update("banglaLineHeight", value)}/><label className="flex items-center justify-between rounded-2xl bg-base-200 p-4"><span>Show Bengali translation</span><input className="toggle toggle-primary" type="checkbox" checked={preferences.showTranslation} onChange={(event) => update("showTranslation", event.target.checked)}/></label><label><span className="text-sm font-medium">Bengali translation</span><select className="select select-bordered mt-2 w-full" value={preferences.translationId || ""} onChange={(event) => selectTranslation(event.target.value)}>{resources.map((resource) => <option key={resource.id} value={resource.id}>{resource.name || resource.authorName}</option>)}</select><span className="mt-2 block text-sm text-base-content/60">Translator: {preferences.translationAuthor || "Not supplied by source"}<br/>Source: Quran Foundation / Quran.com</span></label><label><span className="text-sm font-medium">Theme</span><select className="select select-bordered mt-2 w-full" value={preferences.theme} onChange={(event) => update("theme", event.target.value)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option><option value="reading">Reading / Sepia</option></select></label><button className="btn btn-outline w-full" onClick={() => update("focusMode", !preferences.focusMode)}>{preferences.focusMode ? "Exit Focus Mode" : "Enter Focus Mode"}</button></div></div></div>;
+}
+
+function RangeSetting({ label, value, min, max, step = 1, suffix = "" , onChange }) {
+  return <label><span className="flex justify-between text-sm font-medium"><span>{label}</span><span>{value}{suffix}</span></span><input className="range range-primary mt-3" type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))}/></label>;
 }
 
