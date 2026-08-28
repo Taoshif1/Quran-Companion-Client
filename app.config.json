@@ -1,0 +1,10 @@
+{
+  "name": "Quran Companion",
+  "shortName": "Quran",
+  "description": "A calm, reading-first Quran companion.",
+  "version": "0.1.0",
+  "appId": "com.qurancompanion.app",
+  "themeColor": "#123c34",
+  "backgroundColor": "#f7f1e7"
+}
+

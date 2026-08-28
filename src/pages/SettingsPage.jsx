@@ -1,0 +1,9 @@
+import { APP_NAME, APP_VERSION } from "../config/app";
+import { usePreferences } from "../providers/PreferencesProvider";
+
+export default function SettingsPage() {
+  const { preferences, setPreferences } = usePreferences();
+  const update = (key, value) => setPreferences((current) => ({ ...current, [key]: value }));
+  return <div className="page-shell py-8"><h1 className="text-3xl font-semibold">Settings</h1><div className="mt-7 grid gap-5 lg:grid-cols-2"><section className="rounded-3xl border border-base-300 bg-base-100 p-6"><h2 className="text-xl font-semibold">Reading</h2><label className="mt-5 block">Arabic font size: {preferences.arabicSize}px<input className="range range-primary mt-2" type="range" min="24" max="54" value={preferences.arabicSize} onChange={(e) => update("arabicSize", Number(e.target.value))}/></label><label className="mt-5 block">Bangla font size: {preferences.banglaSize}px<input className="range range-primary mt-2" type="range" min="14" max="28" value={preferences.banglaSize} onChange={(e) => update("banglaSize", Number(e.target.value))}/></label><label className="mt-5 block">Theme<select className="select select-bordered mt-2 w-full" value={preferences.theme} onChange={(e) => update("theme", e.target.value)}><option value="light">Light</option><option value="dark">Dark</option><option value="reading">Reading / Sepia</option></select></label><p className="mt-5 text-sm text-base-content/60">Current translation: {preferences.translationName}</p></section><section className="rounded-3xl border border-base-300 bg-base-100 p-6"><h2 className="text-xl font-semibold">About & data source</h2><p className="mt-4 leading-relaxed text-base-content/70">{APP_NAME} sources Quran content through Quran Foundation / Quran.com. Content is requested by the secure server and cached locally only after a successful official response.</p><p className="mt-4 text-sm text-base-content/55">Version {APP_VERSION}</p></section></div></div>;
+}
+

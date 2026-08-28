@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: light --default, dark;
+}
+
+:root { font-family: "Noto Sans Bengali", system-ui, sans-serif; color: #242724; background: #f7f1e7; }
+:root[data-theme="reading"] { color-scheme: light; --color-base-100: #eee3d0; --color-base-200: #e5d8c1; --color-base-content: #302b24; }
+html { scroll-behavior: smooth; }
+body { min-width: 320px; min-height: 100vh; background: var(--color-base-100, #f7f1e7); }
+button, a, input, select { min-height: 44px; }
+:focus-visible { outline: 3px solid #b89755; outline-offset: 3px; }
+.arabic { font-family: "Noto Naskh Arabic", serif; }
+.bn { font-family: "Noto Sans Bengali", sans-serif; }
+.page-shell { width: min(100% - 2rem, 1120px); margin-inline: auto; }
+.reader-shell { width: min(100% - 1.25rem, 900px); margin-inline: auto; }
+.safe-bottom { padding-bottom: calc(5.25rem + env(safe-area-inset-bottom)); }
+.subtle-grid { background-image: linear-gradient(rgba(184,151,85,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(184,151,85,.06) 1px, transparent 1px); background-size: 28px 28px; }
+@media (min-width: 768px) { .safe-bottom { padding-bottom: 2rem; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
