@@ -3,7 +3,7 @@ import { db } from "../db/database";
 
 /* oxlint-disable react/only-export-components */
 
-const defaults = { arabicSize: 36, banglaSize: 18, arabicLineHeight: 2.05, banglaLineHeight: 1.8, showTranslation: true, theme: "system", focusMode: false, translationId: null, translationName: "Not selected", translationAuthor: null, translationVersion: null, translationClassification: null };
+const defaults = { arabicSize: 38, banglaSize: 18, englishSize: 17, arabicLineHeight: 2.15, banglaLineHeight: 1.85, meaningMode: null, theme: "system", focusMode: false, studyMode: false, banglaResourceId: "bengali_zakaria", englishResourceId: "english_saheeh", tafsirResourceId: "bengali_mokhtasar" };
 const PreferencesContext = createContext(null);
 
 export function PreferencesProvider({ children }) {
