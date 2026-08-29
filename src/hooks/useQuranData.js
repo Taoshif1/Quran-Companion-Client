@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchBengaliTranslations, fetchChapterContent, fetchChapters } from "../api/quran";
+import { fetchBengaliTranslations, fetchBundledChapter, fetchChapterContent, fetchChapters } from "../api/quran";
 import { db } from "../db/database";
 import { cacheChapterContent, cacheChapters } from "../services/library";
 
@@ -8,13 +8,25 @@ export function useChapters() {
 }
 
 export function useTranslations() {
-  return useQuery({ queryKey: ["translations", "bn"], queryFn: fetchBengaliTranslations });
+  return useQuery({ queryKey: ["translations", "bn"], queryFn: fetchBengaliTranslations, retry: 1 });
 }
 
 export function useChapter(chapterId, translationId) {
   return useQuery({
-    queryKey: ["chapter", Number(chapterId), Number(translationId)], enabled: Boolean(translationId),
-    queryFn: async () => { try { const data = await fetchChapterContent(chapterId, translationId); await cacheChapterContent(data); return data; } catch (error) { const cached = await db.chapterContent.get([Number(chapterId), Number(translationId)]); if (cached) return cached; throw error; } },
+    queryKey: ["chapter", Number(chapterId), translationId || "arabic-only"],
+    queryFn: async () => {
+      try {
+        const data = await fetchChapterContent(chapterId, translationId);
+        await cacheChapterContent(data);
+        return data;
+      } catch (error) {
+        if (translationId) {
+          const cached = await db.chapterContent.get([Number(chapterId), translationId]);
+          if (cached?.translationResource?.id === translationId) return cached;
+        }
+        const arabic = await fetchBundledChapter(chapterId);
+        return { ...arabic, translationUnavailable: Boolean(translationId), translationError: error?.message };
+      }
+    },
   });
 }
-
