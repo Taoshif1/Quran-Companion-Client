@@ -4,7 +4,7 @@
 @plugin "daisyui/theme" { name: "qc-dark"; color-scheme: dark; --color-base-100: #17201e; --color-base-200: #1e2a27; --color-base-300: #31403c; --color-base-content: #eee9df; --color-primary: #77b8a4; --color-primary-content: #10221d; --color-secondary: #96aa9f; --color-accent: #c3a365; --color-neutral: #202925; --color-info: #7faac0; --color-success: #72b99c; --color-warning: #d2a45f; --color-error: #dc8177; }
 @plugin "daisyui/theme" { name: "reading"; color-scheme: light; --color-base-100: #f1e7d4; --color-base-200: #e8dbc5; --color-base-300: #d4c4aa; --color-base-content: #342e26; --color-primary: #315b4c; --color-primary-content: #fffaf0; --color-secondary: #675f4d; --color-accent: #9b783f; --color-neutral: #3b372f; --color-info: #4c7180; --color-success: #47755d; --color-warning: #966725; --color-error: #a44f45; }
 
-:root { font-family: "Noto Sans Bengali", system-ui, sans-serif; color: #242724; background: #f7f1e7; }
+:root { font-family: "Noto Sans Bengali", system-ui, sans-serif; color: var(--color-base-content, #242724); background: var(--color-base-100, #f7f1e7); }
 html { scroll-behavior: smooth; }
 body { min-width: 320px; min-height: 100vh; background: var(--color-base-100, #f7f1e7); }
 button, a, input, select { min-height: 44px; }

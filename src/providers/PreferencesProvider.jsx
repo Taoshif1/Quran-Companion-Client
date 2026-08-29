@@ -3,7 +3,7 @@ import { db } from "../db/database";
 
 /* oxlint-disable react/only-export-components */
 
-const defaults = { arabicSize: 36, banglaSize: 18, arabicLineHeight: 2.05, banglaLineHeight: 1.8, showTranslation: true, theme: "system", focusMode: false, translationId: null, translationName: "Not selected", translationAuthor: null };
+const defaults = { arabicSize: 36, banglaSize: 18, arabicLineHeight: 2.05, banglaLineHeight: 1.8, showTranslation: true, theme: "system", focusMode: false, translationId: null, translationName: "Not selected", translationAuthor: null, translationVersion: null, translationClassification: null };
 const PreferencesContext = createContext(null);
 
 export function PreferencesProvider({ children }) {

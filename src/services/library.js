@@ -3,13 +3,15 @@ import { db } from "../db/database";
 export const cacheChapters = (chapters) => db.chapters.bulkPut(chapters);
 
 export async function cacheChapterContent(content, downloaded = false) {
-  const key = [content.chapter.id, content.translationResource.id];
+  const translationId = content.translationResource?.id || "arabic-only";
+  const key = [content.chapter.id, translationId];
   const existing = await db.chapterContent.get(key);
-  const record = { ...content, chapterId: content.chapter.id, translationId: content.translationResource.id, downloaded: downloaded || Boolean(existing?.downloaded), cachedAt: new Date().toISOString() };
+  const record = { ...content, chapterId: content.chapter.id, translationId, downloaded: downloaded || Boolean(existing?.downloaded), cachedAt: new Date().toISOString() };
   if (downloaded) {
     await db.transaction("rw", db.chapterContent, db.downloads, async () => {
       await db.chapterContent.put(record);
-      await db.downloads.put({ chapterId: content.chapter.id, translationId: content.translationResource.id, translationName: content.translationResource.name, translationAuthor: content.translationResource.authorName, chapterName: content.chapter.nameSimple, downloadedAt: record.cachedAt });
+      if (!content.translationResource) throw new Error("Select a Bengali resource before downloading it");
+      await db.downloads.put({ chapterId: content.chapter.id, translationId, translationName: content.translationResource.name, translationAuthor: content.translationResource.authorName, translationVersion: content.translationResource.version, chapterName: content.chapter.nameSimple, downloadedAt: record.cachedAt });
     });
   } else {
     await db.chapterContent.put(record);
