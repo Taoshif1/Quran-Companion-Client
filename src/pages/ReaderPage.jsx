@@ -1,76 +1,96 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { ArrowLeft, ArrowRight, Download, Eye, Settings } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, BookOpenText, Download, Eye, Settings } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Link, useParams } from "react-router-dom";
-import { getApiMessage } from "../api/client";
-import { ThemeControl } from "../components/common/ThemeControl";
-import { EmptyState, LoadingState } from "../components/common/PageState";
 import { AyahCard } from "../components/quran/AyahCard";
 import { ReaderSettings } from "../components/quran/ReaderSettings";
 import { db } from "../db/database";
-import { useChapter, useTranslations } from "../hooks/useQuranData";
+import { useChapter, useMeaningChapter, useTranslations } from "../hooks/useQuranData";
 import { usePreferences } from "../providers/PreferencesProvider";
 import { cacheChapterContent } from "../services/library";
 
 export default function ReaderPage() {
   const { chapterId } = useParams();
-  const numericChapterId = Number(chapterId);
-  const validChapter = Number.isInteger(numericChapterId) && numericChapterId >= 1 && numericChapterId <= 114;
+  const id = Number(chapterId);
+  const { preferences, setPreferences } = usePreferences();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [jumpValue, setJumpValue] = useState("");
-  const { preferences, setPreferences, ready } = usePreferences();
-  const translationQuery = useTranslations();
-  const resources = useMemo(() => translationQuery.data || [], [translationQuery.data]);
-  const chapterQuery = useChapter(chapterId, preferences.translationId);
-  const bookmarks = useLiveQuery(() => db.bookmarks.where("chapterId").equals(numericChapterId).toArray(), [numericChapterId], []);
-  const download = useLiveQuery(() => preferences.translationId ? db.downloads.get([numericChapterId, preferences.translationId]) : undefined, [numericChapterId, preferences.translationId]);
+  const [jumpOpen, setJumpOpen] = useState(false);
+  const [jump, setJump] = useState("");
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const arabic = useChapter(id);
+  const bnCatalog = useTranslations("bn");
+  const enCatalog = useTranslations("en");
+  const resources = useMemo(() => [...(bnCatalog.data || []), ...(enCatalog.data || [])], [bnCatalog.data, enCatalog.data]);
+  const banglaResource = resources.find((item) => item.id === preferences.banglaResourceId && item.classification === "translation");
+  const englishResource = resources.find((item) => item.id === preferences.englishResourceId);
+  const tafsirResource = resources.find((item) => item.id === preferences.tafsirResourceId && item.classification === "tafsir");
+  const wantBn = preferences.meaningMode === "bn" || preferences.meaningMode === "both";
+  const wantEn = preferences.meaningMode === "en" || preferences.meaningMode === "both";
+  const bangla = useMeaningChapter(id, wantBn ? banglaResource : null);
+  const english = useMeaningChapter(id, wantEn ? englishResource : null);
+  const tafsir = useMeaningChapter(id, preferences.studyMode ? tafsirResource : null);
+  const bookmarks = useLiveQuery(() => db.bookmarks.where("chapterId").equals(id).toArray(), [id], []);
   const bookmarked = new Set(bookmarks.map((item) => item.verseKey));
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   useEffect(() => {
-    if (ready && !preferences.translationId && resources.length) {
-      const selected = resources[0];
-      setPreferences((current) => ({ ...current, translationId: selected.id, translationName: selected.name, translationAuthor: selected.authorName || null, translationVersion: selected.version, translationClassification: selected.classification }));
-    }
-  }, [preferences.translationId, ready, resources, setPreferences]);
-  useEffect(() => {
-    if (chapterQuery.data && location.hash) requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView());
-  }, [chapterQuery.data]);
-  useEffect(() => () => setPreferences((current) => ({ ...current, focusMode: false })), [setPreferences]);
+    const update = () => {
+      const height = document.documentElement.scrollHeight - innerHeight;
+      setScrollProgress(height > 0 ? Math.min(100, Math.round(scrollY / height * 100)) : 0);
+    };
+    addEventListener("scroll", update, { passive: true });
+    return () => removeEventListener("scroll", update);
+  }, []);
+  useEffect(() => { if (arabic.data && location.hash) requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView()); }, [arabic.data]);
+  useEffect(() => () => setPreferences((value) => ({ ...value, focusMode: false })), [setPreferences]);
 
-  if (!validChapter) return <div className="reader-shell py-10"><EmptyState title="Invalid chapter" message="Choose a Surah numbered from 1 to 114."/></div>;
-  if (chapterQuery.isLoading && !chapterQuery.data) return <div className="reader-shell"><LoadingState/></div>;
-  if (chapterQuery.isError) return <div className="reader-shell py-10"><EmptyState title="Reader unavailable" message={getApiMessage(chapterQuery.error)} offline={!navigator.onLine}/></div>;
-  const content = chapterQuery.data;
-  if (!content) return null;
-
-  const jumpToAyah = (event) => {
+  if (!Number.isInteger(id) || id < 1 || id > 114) return <div className="reader-shell py-16">Choose a Surah numbered 1–114.</div>;
+  if (!arabic.data) return <ReaderSkeleton/>;
+  const content = arabic.data;
+  const byVerse = (query, index) => query.data?.verses[index]?.translation || null;
+  const unavailable = (wantBn && bangla.isError) || (wantEn && english.isError);
+  const go = (event) => {
     event.preventDefault();
-    const verseNumber = Number(jumpValue);
-    if (!Number.isInteger(verseNumber) || verseNumber < 1 || verseNumber > content.chapter.versesCount) return toast.error(`Enter an ayah from 1 to ${content.chapter.versesCount}`);
-    const hash = `#ayah-${numericChapterId}-${verseNumber}`;
+    const verse = Number(jump);
+    if (!Number.isInteger(verse) || verse < 1 || verse > content.chapter.versesCount) return toast.error("Enter an ayah from 1 to " + content.chapter.versesCount);
+    const hash = "#ayah-" + id + "-" + verse;
     history.replaceState(null, "", hash);
-    document.querySelector(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelector(hash)?.scrollIntoView({ behavior: "smooth" });
+    setJumpOpen(false);
+  };
+  const downloadMeanings = async () => {
+    const selected = [wantBn ? bangla.data : null, wantEn ? english.data : null].filter(Boolean);
+    if (!selected.length) return toast.error("Wait for your selected meaning to finish loading");
+    await Promise.all(selected.map((item) => cacheChapterContent(item, true)));
+    toast.success("Selected meanings are available offline");
   };
 
-  const downloadForOffline = async () => {
-    if (!content.translationResource) return toast.error("Select an available Bengali resource first");
-    try { await cacheChapterContent(content, true); toast.success("Selected QuranEnc translation is available offline"); }
-    catch { toast.error("Could not complete the translation download"); }
-  };
-
-  const meaningLabel = content.translationResource ? `${content.translationResource.name} · v${content.translationResource.version}` : "Bengali meaning unavailable";
   return <>
-    <header className="sticky top-0 z-30 border-b border-base-300 bg-base-100/90 shadow-sm backdrop-blur">
-      <div className="reader-shell flex min-h-18 items-center gap-2"><Link to="/surahs" className="btn btn-circle btn-ghost" aria-label="Back to Surahs"><ArrowLeft/></Link><div className="min-w-0 flex-1"><div className="flex items-baseline gap-2"><span className="text-xs font-semibold text-primary">{content.chapter.id}</span><h1 className="truncate font-semibold">{content.chapter.nameSimple}</h1><span className="arabic hidden text-lg text-primary sm:inline" lang="ar" dir="rtl" translate="no">{content.chapter.nameArabic}</span></div><p className="truncate text-xs text-base-content/60">{content.chapter.revelationPlace} · {content.chapter.versesCount} ayahs · {meaningLabel}</p></div><ThemeControl/><button className="btn btn-circle btn-ghost" onClick={() => setPreferences((value) => ({ ...value, focusMode: !value.focusMode }))} aria-label={preferences.focusMode ? "Exit focus mode" : "Enter focus mode"}><Eye size={19}/></button><button className="btn btn-circle btn-ghost" onClick={() => setSettingsOpen(true)} aria-label="Open reader settings"><Settings/></button></div>
-      <div className="reader-shell flex items-center justify-between gap-3 pb-3"><span className="badge badge-success badge-outline">Arabic available offline</span><button className="btn btn-sm btn-ghost gap-2" disabled={!content.translationResource || Boolean(download)} onClick={downloadForOffline}><Download size={16}/>{download ? "Translation downloaded" : "Download Bengali"}</button></div>
+    <div className="reading-progress" style={{ width: scrollProgress + "%" }}/>
+    <header className="reader-toolbar"><div className="reader-toolbar-inner">
+      <Link to="/surahs" className="icon-button" aria-label="Back to Surahs"><ArrowLeft/></Link>
+      <div className="toolbar-title"><strong>{content.chapter.nameSimple}</strong><span>Surah {id} · {content.chapter.versesCount} ayahs</span></div>
+      <button className="toolbar-action" onClick={() => setJumpOpen(!jumpOpen)}><BookOpenText/><span>Jump</span></button>
+      <button className="icon-button" onClick={downloadMeanings} aria-label="Download selected meanings"><Download/></button>
+      <button className="icon-button" onClick={() => setPreferences((value) => ({ ...value, focusMode: !value.focusMode }))} aria-label="Toggle focus mode"><Eye/></button>
+      <button className="icon-button" onClick={() => setSettingsOpen(true)} aria-label="Reader preferences"><Settings/></button>
+    </div>{jumpOpen && <form className="jump-panel" onSubmit={go}><label>Jump to Ayah<input autoFocus type="number" min="1" max={content.chapter.versesCount} value={jump} onChange={(event) => setJump(event.target.value)} placeholder={"1–" + content.chapter.versesCount}/></label><button type="submit">Go</button></form>}
     </header>
-    <div className="reader-shell">
-      <section className="py-10 text-center md:py-14"><p className="text-xs uppercase tracking-[.2em] text-primary">Surah {content.chapter.id}</p><p className="arabic mt-3 text-4xl text-primary md:text-5xl" lang="ar" dir="rtl" translate="no">{content.chapter.nameArabic}</p><h2 className="mt-3 text-xl font-semibold">{content.chapter.nameSimple}</h2><p className="mt-2 text-sm text-base-content/60">Arabic: Tanzil Project · Uthmani Quran Text · Version 1.1</p><p className="mt-1 text-sm text-base-content/60">Bengali meaning: {meaningLabel} · Source: QuranEnc</p>{(content.translationUnavailable || translationQuery.isError || (!translationQuery.isLoading && !resources.length)) && <p className="mx-auto mt-4 max-w-xl rounded-xl bg-warning/10 p-3 text-sm text-warning-content">Bengali meaning is temporarily unavailable. Canonical Arabic remains fully readable.</p>}<form className="mx-auto mt-7 flex max-w-xs gap-2" onSubmit={jumpToAyah}><label className="input input-bordered flex min-w-0 flex-1 items-center"><span className="sr-only">Jump to ayah</span><input type="number" min="1" max={content.chapter.versesCount} value={jumpValue} onChange={(event) => setJumpValue(event.target.value)} placeholder={`Ayah 1–${content.chapter.versesCount}`} aria-label="Ayah number"/></label><button className="btn btn-primary" type="submit">Jump</button></form></section>
-      {content.verses.map((verse) => <AyahCard key={verse.verseKey} verse={verse} chapterName={content.chapter.nameSimple} bookmarked={bookmarked.has(verse.verseKey)}/>) }
-      <nav className="grid gap-3 py-10 sm:grid-cols-2" aria-label="Adjacent Surahs">{numericChapterId > 1 && <Link className="btn btn-outline justify-start" to={`/surah/${numericChapterId - 1}`}><ArrowLeft size={18}/>Previous Surah</Link>}{numericChapterId < 114 && <Link className="btn btn-outline justify-end sm:col-start-2" to={`/surah/${numericChapterId + 1}`}>Next Surah<ArrowRight size={18}/></Link>}</nav>
-    </div>
-    <ReaderSettings open={settingsOpen} onClose={closeSettings} resources={resources}/>
+    <main className="reader-shell">
+      <section className="surah-opening"><p>Surah {id}</p><h1 className="arabic" lang="ar" dir="rtl" translate="no">{content.chapter.nameArabic}</h1><h2>{content.chapter.nameSimple}</h2><div>{content.chapter.translatedName} · {content.chapter.revelationPlace} · {content.chapter.versesCount} ayahs</div><small>Arabic · Tanzil Project · Uthmani Quran Text · Version 1.1</small></section>
+      {preferences.meaningMode === null && <MeaningChoice onChoose={(meaningMode) => setPreferences((value) => ({ ...value, meaningMode }))}/>}
+      {unavailable && <div className="calm-notice">Your selected meaning is temporarily unavailable. The Arabic Quran remains available.</div>}
+      {content.verses.map((verse, index) => <AyahCard key={verse.verseKey} verse={verse} chapterName={content.chapter.nameSimple} bookmarked={bookmarked.has(verse.verseKey)} bangla={wantBn ? byVerse(bangla, index) : null} english={wantEn ? byVerse(english, index) : null} explanation={preferences.studyMode ? byVerse(tafsir, index) : null}/>)}
+      <nav className="chapter-nav" aria-label="Adjacent Surahs">{id > 1 && <Link to={"/surah/" + (id - 1)}><ArrowLeft/>Previous Surah</Link>}{id < 114 && <Link to={"/surah/" + (id + 1)}>Next Surah<ArrowRight/></Link>}</nav>
+    </main>
+    <ReaderSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} resources={resources}/>
   </>;
+}
+
+function MeaningChoice({ onChoose }) {
+  return <div className="meaning-choice"><p className="eyebrow">Choose your reading companion</p><h2>Which meanings would you like to read?</h2><div><button onClick={() => onChoose("bn")}>বাংলা</button><button onClick={() => onChoose("en")}>English</button><button onClick={() => onChoose("both")}>Both</button></div><small>This preference is independent of the app language.</small></div>;
+}
+
+function ReaderSkeleton() {
+  return <div className="reader-shell py-16" aria-label="Opening canonical Quran"><div className="skeleton-line w-1/3"/><div className="skeleton-line mt-6 h-24"/><div className="skeleton-line mt-12 h-40"/></div>;
 }

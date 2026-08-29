@@ -12,8 +12,8 @@ export function fetchChapters() {
   return fetchBundledJson("/data/quran/chapters.json");
 }
 
-export async function fetchBengaliTranslations() {
-  const { data } = await apiClient.get("/quran/translations", { params: { language: "bn" } });
+export async function fetchTranslations(language) {
+  const { data } = await apiClient.get("/quran/translations", { params: { language } });
   return data.data;
 }
 
