@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchBundledChapter, fetchChapterContent, fetchChapters, fetchTranslations } from "../api/quran";
+import { fetchBundledChapter, fetchChapterContent, fetchTranslations } from "../api/quran";
 import { db } from "../db/database";
-import { cacheChapterContent, cacheChapters } from "../services/library";
+import { loadCanonicalChapters } from "../services/canonicalQuran";
+import { cacheChapterContent } from "../services/library";
 
 export function useChapters() {
-  return useQuery({ queryKey: ["chapters"], queryFn: async () => { const data = await fetchChapters(); await cacheChapters(data); return data; }, placeholderData: () => undefined });
+  return useQuery({ queryKey: ["chapters"], queryFn: loadCanonicalChapters, placeholderData: () => undefined });
 }
 
 export function useTranslations(language = "bn") {
