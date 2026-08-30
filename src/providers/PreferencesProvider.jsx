@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { db } from "../db/database";
+import { databaseReady, db } from "../db/database";
 
 /* oxlint-disable react/only-export-components */
 
@@ -9,7 +9,7 @@ const PreferencesContext = createContext(null);
 export function PreferencesProvider({ children }) {
   const [preferences, setPreferences] = useState(defaults);
   const [ready, setReady] = useState(false);
-  useEffect(() => { db.settings.get("preferences").then((saved) => { if (saved?.value) setPreferences({ ...defaults, ...saved.value }); setReady(true); }); }, []);
+  useEffect(() => { databaseReady.then(() => db.settings.get("preferences")).then((saved) => { if (saved?.value) setPreferences({ ...defaults, ...saved.value }); }).catch(() => undefined).finally(() => setReady(true)); }, []);
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const applyTheme = () => { document.documentElement.dataset.theme = preferences.theme === "system" ? (media.matches ? "qc-dark" : "qc-light") : preferences.theme === "dark" ? "qc-dark" : preferences.theme === "light" ? "qc-light" : "reading"; };

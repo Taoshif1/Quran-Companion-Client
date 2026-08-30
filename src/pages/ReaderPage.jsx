@@ -45,10 +45,13 @@ export default function ReaderPage() {
   useEffect(() => () => setPreferences((value) => ({ ...value, focusMode: false })), [setPreferences]);
 
   if (!Number.isInteger(id) || id < 1 || id > 114) return <div className="reader-shell py-16">Choose a Surah numbered 1–114.</div>;
+  if (arabic.isError) return <div className="reader-shell py-16"><div className="calm-notice"><strong>Local Quran data could not be loaded.</strong><br/>Please reload the application.</div></div>;
   if (!arabic.data) return <ReaderSkeleton/>;
   const content = arabic.data;
   const byVerse = (query, index) => query.data?.verses[index]?.translation || null;
-  const unavailable = (wantBn && bangla.isError) || (wantEn && english.isError);
+  const unavailable =
+    (wantBn && (bnCatalog.isError || bangla.isError)) ||
+    (wantEn && (enCatalog.isError || english.isError));
   const go = (event) => {
     event.preventDefault();
     const verse = Number(jump);
@@ -79,7 +82,7 @@ export default function ReaderPage() {
     <main className="reader-shell">
       <section className="surah-opening"><p>Surah {id}</p><h1 className="arabic" lang="ar" dir="rtl" translate="no">{content.chapter.nameArabic}</h1><h2>{content.chapter.nameSimple}</h2><div>{content.chapter.translatedName} · {content.chapter.revelationPlace} · {content.chapter.versesCount} ayahs</div><small>Arabic · Tanzil Project · Uthmani Quran Text · Version 1.1</small></section>
       {preferences.meaningMode === null && <MeaningChoice onChoose={(meaningMode) => setPreferences((value) => ({ ...value, meaningMode }))}/>}
-      {unavailable && <div className="calm-notice">Your selected meaning is temporarily unavailable. The Arabic Quran remains available.</div>}
+      {unavailable && <div className="calm-notice">Meaning is temporarily unavailable. The Arabic Quran remains available.</div>}
       {content.verses.map((verse, index) => <AyahCard key={verse.verseKey} verse={verse} chapterName={content.chapter.nameSimple} bookmarked={bookmarked.has(verse.verseKey)} bangla={wantBn ? byVerse(bangla, index) : null} english={wantEn ? byVerse(english, index) : null} explanation={preferences.studyMode ? byVerse(tafsir, index) : null}/>)}
       <nav className="chapter-nav" aria-label="Adjacent Surahs">{id > 1 && <Link to={"/surah/" + (id - 1)}><ArrowLeft/>Previous Surah</Link>}{id < 114 && <Link to={"/surah/" + (id + 1)}>Next Surah<ArrowRight/></Link>}</nav>
     </main>
